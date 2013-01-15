@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--This is the original file of Deovo V5,so you can try to edit this file to fix the sd!-->
+<StorageList
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <storage android:mountPoint="/mnt/phone" android:storageDescription="@string/storage_internal" android:primary="true" android:emulated="true" android:mtpReserve="100" />
+    <storage android:mountPoint="/mnt/sdcard" android:storageDescription="@string/storage_sd_card" android:removable="true" />
+</StorageList>

@@ -1,0 +1,417 @@
+import init.nv_dev_board.usb.rc
+
+on early-init
+    mount debugfs debugfs /sys/kernel/debug
+
+    # for backwards compatibility
+    export EXTERNAL_STORAGE /mnt/sdcard
+    export EXTERNAL_PHONE /mnt/phone
+    mkdir /mnt/sdcard 0000 system system
+    symlink /mnt/sdcard /sdcard
+    symlink /mnt/phone /mnt/sdcard
+
+    mkdir /mnt/phone 0000 system system
+    symlink /mnt/phone /phone
+
+    # create directory for mounting usb drives
+    mkdir /mnt/usbdrive 0666 system system
+    symlink /mnt/usbdrive /usbdrive
+    mkdir /czcapps 0666 system system
+
+on fs
+    mount ext4 /dev/block/platform/sdhci-tegra.3/by-name/APP /system wait ro
+    setprop ro.crypto.tmpfs_options size=128m,mode=0771,uid=1000,gid=1000
+    setprop ro.crypto.umount_sd false
+    mount ext4 /dev/block/platform/sdhci-tegra.3/by-name/UDA /data wait noatime nosuid nodev journal_async_commit,data=writeback,nodelalloc,errors=panic
+    mount ext4 /dev/block/platform/sdhci-tegra.3/by-name/CAC /cache wait noatime nosuid nodev journal_async_commit,data=writeback,nodelalloc,errors=panic
+    mount ext4 /dev/block/mmcblk0p7 /pac
+    mount ext4 /dev/block/mmcblk0p8 /czcapps
+
+on post-fs-data
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    mkdir /data/nvcam 0777 system system
+    chown dhcp dhcp /data/misc/dhcp
+    chown wifi wifi /data/misc/wifi
+    chown wifi wifi /data/misc/wifi/wpa_supplicant.conf
+    chown wifi wifi /data/misc/wifi/hostapd.conf
+
+    mkdir /data/misc/wminput 0776 system system
+# begin zhu changchun    
+    mkdir /data/MTBF 0771 system system
+    mkdir /mnt/phone/CPLOG 0777 system system
+    mkdir /data/pac 0777 system system 
+    copy /pac/chpacmod.rc /data/pac/init.rc
+    chmod 0777 /data/pac/init.rc
+# end
+
+    # /data/soundsilent.ini save the silent mode,for bootup/down music
+    chmod 666 /data/soundsilent.ini
+    
+    # we will remap this as /mnt/sdcard with the sdcard fuse tool
+    mkdir /data/media 0775 media_rw media_rw
+    chown media_rw media_rw /data/media
+
+    # Set indication (checked by vold) that we have finished this action
+    setprop vold.post_fs_data_done 1
+
+on boot
+
+# bluetooth
+    # UART device
+    chmod 0660 /dev/ttyHS2
+    chown bluetooth bluetooth /dev/ttyHS2
+
+    # bluetooth MAC address programming
+    chown bluetooth bluetooth ro.bt.bdaddr_path
+    chown bluetooth bluetooth /system/etc/bluetooth
+    setprop ro.bt.bdaddr_path "/system/etc/bluetooth/bdaddr"
+    mkdir /data/misc/bluetoothd 0770 bluetooth bluetooth
+    mkdir /data/misc/bluetooth 0770 system system
+# modem
+    chmod 777 /system/bin/Marvell/MRD.bin
+    mkdir /data/Linux 0666 system system
+    mkdir /data/Linux/Marvell 0666 system system
+    mkdir /data/Linux/Marvell/NVM 0666 system system
+    copy /etc/nvm_uncheck_file.cfg /data/Linux/Marvell/NVM/nvm_uncheck_file.cfg
+    copy /etc/TTPCom_NRAM2_ABMM_WRITEABLE_DATA.gki /data/Linux/Marvell/NVM/TTPCom_NRAM2_ABMM_WRITEABLE_DATA.gki
+    copy /pac/GsmCalData.nvm /data/Linux/Marvell/NVM/GsmCalData.nvm
+    copy /pac/TdCalData.nvm /data/Linux/Marvell/NVM/TdCalData.nvm
+
+# NFC
+   setprop ro.nfc.port "I2C"
+
+# backlight
+    chown system system /sys/class/backlight/pwm-backlight/brightness
+
+# didim
+    chown system system /sys/class/graphics/fb0/device/smartdimmer/enable
+    chown system system /sys/class/graphics/fb0/device/smartdimmer/aggressiveness
+
+# power
+    chown system system /sys/kernel/tegra_cap/core_cap_level
+    chown system system /sys/kernel/tegra_cap/core_cap_state
+    chown system system /sys/module/cpu_tegra/parameters/cpu_user_cap
+
+# Sensor
+#    insmod /system/lib/modules/mpu6050b1.ko
+#    insmod /system/lib/modules/inv_mpu_ak89xx.ko
+    insmod /system/lib/modules/mpu3050.ko
+    insmod /system/lib/modules/inv_mpu_bma250.ko
+    insmod /system/lib/modules/inv_mpu_hmc5883.ko
+    
+    chmod 666 /dev/nvhost-ctrl
+    chmod 666 /dev/nvhost-display
+    chmod 666 /dev/nvhost-dsi
+    chmod 666 /dev/nvhost-gr2d
+    chmod 666 /dev/nvhost-gr3d
+    chmod 666 /dev/nvhost-isp
+    chmod 666 /dev/nvhost-mpe
+    chmod 666 /dev/nvhost-vi
+
+# Power management settings
+    write /sys/module/cpu_tegra3/parameters/no_lp 0
+    #write /sys/module/tegra3_emc/parameters/emc_enable 0
+    #write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 1000000
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor userspace
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed 760000
+    write /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor userspace
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed 760000
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor userspace
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed 760000
+    write /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor userspace
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed 760000
+    write /sys/module/cpu_tegra3/parameters/auto_hotplug 1
+    #write /sys/module/cpuidle_t3/parameters/lp2_0_in_idle 0
+    write /sys/module/cpuidle/parameters/lp2_in_idle 1
+
+# Default Read Ahead value for sdcards
+    write /sys/block/mmcblk0/queue/read_ahead_kb 2048
+    write /sys/block/mmcblk1/queue/read_ahead_kb 2048
+
+# Wiimote connect status
+    #write /data/misc/wminput/connected 0
+    #chmod 0666 /data/misc/wminput/connected
+
+# GPS init
+    write /sys/class/gpio/export 162
+    write /sys/class/gpio/gpio162/value 0
+    write /sys/class/gpio/gpio162/direction out
+    chown root system /sys/class/gpio/gpio162/value
+    chmod 0664 /sys/class/gpio/gpio162/value
+    write /sys/class/gpio/export 163
+    write /sys/class/gpio/gpio163/direction out
+    write /sys/class/gpio/gpio163/value 1
+    chown root system /sys/class/gpio/gpio163/value
+    chmod 0664 /sys/class/gpio/gpio163/value
+
+#modify by znj for camera capture blue
+	chmod 0666 /sys/module/tegra3_emc/parameters/emc_enable
+
+# Load wifi drivers (all except wl12xx_sdio)
+    insmod /system/lib/modules/compat/compat.ko
+    insmod /system/lib/modules/compat/cfg80211.ko
+    insmod /system/lib/modules/compat/mac80211.ko
+    insmod /system/lib/modules/compat/wl12xx.ko debug_level=0x63c00
+
+# BB mapping symbolic name to the logging ttyACM port
+    symlink /dev/ttyACM2 /dev/log_modem
+
+service wpa_supplicant /system/bin/wpa_supplicant \
+    -Dnl80211 -iwlan0 -dd
+#   we will start as root and wpa_supplicant will switch to user wifi
+#   after setting up the capabilities required for WEXT
+#   user wifi
+#   group wifi inet keystore
+    class main
+    socket wpa_wlan0 dgram 660 wifi wifi
+    disabled
+    oneshot
+
+#TI-ST
+service uim /system/bin/uim-sysfs
+    class core
+    user root
+    group root
+    oneshot
+
+service dhcpcd_wlan0 /system/bin/dhcpcd -ABKL
+    class main
+    disabled
+    oneshot
+
+service dhcpcd_p2p /system/bin/dhcpcd -aABKL
+    class main
+    disabled
+    oneshot
+
+service dhcpcd_eth0 /system/bin/dhcpcd -ABKL -f/system/etc/dhcpcd/dhcpcd.conf
+     class main
+     disabled
+     oneshot
+
+service dhcpcd_bnep0 /system/bin/dhcpcd -ABKL
+    class main
+    disabled
+    oneshot
+
+service iprenew_wlan0 /system/bin/dhcpcd -n
+    class main
+    disabled
+    oneshot
+
+service iprenew_p2p /system/bin/dhcpcd -n
+    class main
+    disabled
+    oneshot
+
+service iprenew_eth0 /system/bin/dhcpcd -n
+    disabled
+    oneshot
+
+service hostapd_bin  /system/bin/hostapd -dd /data/misc/wifi/hostapd.conf
+    socket wpa_wlan0 dgram 660 wifi wifi
+    disabled
+    oneshot
+
+on property:wlan.driver.status=ok
+    chown wifi wifi /sys/devices/platform/wl1271/bt_coex_state
+
+# create virtual SD card at /mnt/sdcard, based on the /data/media directory
+# deamon will drop to user/group system/media_rw after initializing
+# underlying files in /data/media wil be created with user and group media_rw (1023)
+service sdcard /system/bin/sdcard /data/media 1023 1023
+    class late_start
+
+# bugreport is triggered by the VOLUME-DOWN and VOLUME-UP keys
+service bugreport /system/bin/dumpstate -d -v -o /data/storage/bugreports/bugreport
+    class main
+    disabled
+    oneshot
+    keycodes 115 114
+
+# Start GPS daemon
+  on boot
+  chown root system /dev/ttyHS1
+  chmod 0664 /dev/ttyHS1
+
+# Mount usb drives as /usbdrive. Generally usb drives are formatted with FAT
+# filesystem, so we support FAT as of now.
+on device-added-/sys/block/sda
+  mount vfat /dev/block/sda /mnt/usbdrive
+
+on device-removed-/sys/block/sda
+  umount /mnt/usbdrive
+
+# Recovery daemon: configure MSC partition
+service recoveryd /system/bin/recoveryd /dev/block/platform/sdhci-tegra.3/by-name/MSC
+    disabled
+    class main
+    user root
+    group root
+    oneshot
+
+on property:sys.shutdown.requested=1recovery
+    start recoveryd
+
+#Prepare TF service
+service tf_daemon /system/bin/tf_daemon -storageDir /data/tf -d
+    disabled
+    class main
+    user root
+    group shell
+    oneshot
+
+#Create data directory and start service
+on property:tf.enable=y
+    mkdir /data/tf
+    start tf_daemon
+
+# Enable NvCpuD, and set it to never poll config again
+on boot
+    setprop nvcpud.enabled true
+    setprop nvcpud.config_refresh_ms -1
+
+service nvcpud /system/bin/nvcpud
+    class main
+    user root
+    group root
+
+#Raydium touch setting
+service rm_ts_service    /system/bin/rm_ts_server
+    class main
+
+#Synaptics touch, allow low power mode
+on boot
+    write /sys/devices/sensor00/fn01/nosleep 0
+
+# create filesystems if necessary
+service setup_fs /system/bin/setup_fs \
+        /dev/block/platform/sdhci-tegra.3/by-name/UDA \
+        /dev/block/platform/sdhci-tegra.3/by-name/CAC
+    class core
+    user root
+    group root
+    oneshot
+
+# begin, Li Fenfen, 20120625, add for wireless mac
+service get_mac /system/bin/wireless_mac
+    class main
+    user root
+    group root
+    oneshot
+# end
+
+service set_wifi_mac /system/bin/calibrator set nvs_mac /data/misc/wifi/wl1271-nvs.bin
+    disabled
+    class main
+    user root
+    group root
+    oneshot
+
+service wifi_calibrate /system/bin/calibrator plt autocalibrate2 wlan0 \
+        /etc/firmware/ti-connectivity/TQS_S_2.6.ini /data/misc/wifi/wl1271-nvs.bin
+    disabled
+    class main
+    user root
+    group root
+    oneshot
+
+# begin, Li Fenfen, 20121011, add for ti wlan wrong status
+on property:persist.wlan.ti.calibrated=""
+    setprop persist.wlan.ti.calibrated 0
+# end
+
+# Second boot and onwards
+on property:persist.wlan.ti.calibrated=1
+# begin, Li Fenfen, 20120625, add for wireless mac
+    start set_wifi_mac
+# end
+    insmod /system/lib/modules/compat/wl12xx_sdio.ko
+
+# Very first boot. This case should be below the above case in init.rc so that
+# the above case, does not get executed on first boot. Very first boot is setting
+# persist.wlan.ti.calibrated=1 which triggers the above case.
+on property:persist.wlan.ti.calibrated=0
+    copy /etc/firmware/ti-connectivity/wl1271-nvs_default.bin /data/misc/wifi/wl1271-nvs.bin
+    start set_wifi_mac
+    insmod /system/lib/modules/compat/wl12xx_sdio.ko
+    start wifi_calibrate
+    setprop persist.wlan.ti.calibrated 1
+
+#gps
+service navl_server /system/bin/navd --android_log NAVD  -p3 -nav\"-c/system/etc/gps/config/pathconfigfile.txt\"
+    class main
+    user root
+    oneshot
+
+# begin zhu changchun
+service mtbfd /system/bin/mtbf
+  socket mtbf stream 777
+  user root
+  class main
+# end
+
+# modem
+service cploadserver /system/bin/cploadserver	
+    user root
+    class main
+    oneshot
+
+service nvmserver /system/bin/nvmserver	
+    user root
+    class main
+    oneshot
+
+service eeh /system/bin/eeh -f "/system/etc/mrvl_tel_eeh_def.xml"
+    user root
+    class main
+    oneshot
+
+service mrvl_diag /system/bin/mrvl_diag
+    user system
+    group root
+    class main
+    oneshot
+
+service modem_monitor /system/bin/modem_monitor
+    user root
+    class main
+    oneshot
+
+service atserver_lite /system/bin/atserver_lite
+    user root
+    class main
+    oneshot
+ service shutdownanim /system/bin/bootanimation -shutdown
+    user graphics
+    group graphics
+    disabled
+    oneshot   
+
+service  vcm  /system/bin/vcm
+    user root
+    class main
+    oneshot
+    
+on property:sys.boot_completed=1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor interactive
+    write /sys/devices/system/cpu/cpufreq/interactive/boost_factor 2
+    write /sys/devices/system/cpu/cpufreq/interactive/sustain_load 80
+    
+service dlog /system/bin/dlog 
+    disabled    
+    
+on property:sys.log.on=1
+    start dlog 
+     
+on property:sys.log.on=0
+    stop dlog 
+    
+on property:sys.logcat.first_boot=1
+    setprop sys.logcat.first_boot 0 
+    
