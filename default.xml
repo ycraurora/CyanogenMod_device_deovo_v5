@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="origin" fetch="ssh://git@github.com/" />
+  
+  <default revision="master" remote="origin" />
+  
+  <project path="device/deovo/v5"
+           name="Sylviandy/CyanogenMod_device_deovo_v5.git" remote="origin" />
+
+</manifest> 
